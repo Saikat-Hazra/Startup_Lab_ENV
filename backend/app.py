@@ -39,7 +39,6 @@ app.add_middleware(
 
 # Global simulation components
 env = StartupEnv(max_steps=50, seed=42)
-agent = ControllerAgent()
 validator = DecisionValidator()
 memory = EpisodicMemory(max_size=2000)
 reflection = Reflection()
@@ -47,9 +46,16 @@ last_insights: List[str] = []
 history: List[Dict[str, Any]] = []
 USE_LLM_AGENT = os.getenv("USE_LLM_AGENT", "false").lower() == "true"
 
+try:
+    agent = ControllerAgent() if USE_LLM_AGENT else None
+except Exception:
+    # Keep API available even when LLM provider/key is unavailable.
+    USE_LLM_AGENT = False
+    agent = None
+
 
 def _generate_commentary(actions: List[str], rewards: List[float], state_before: Dict[str, Any], state_after: Dict[str, Any]) -> str:
-    if not USE_LLM_AGENT:
+    if not USE_LLM_AGENT or agent is None:
         return "Simulation step completed."
 
     prompt = f"""
@@ -69,7 +75,7 @@ Provide exciting commentary in 2-3 sentences like a sports announcer.
 
 
 def _auto_actions(state: Dict[str, Any], mode: str = "trained") -> tuple[List[str], List[str]]:
-    if mode == "baseline" or not USE_LLM_AGENT:
+    if mode == "baseline" or not USE_LLM_AGENT or agent is None:
         actions = ["analyze_market"] * env.num_startups
         reasonings = ["Baseline action"] * env.num_startups
         return actions, reasonings
