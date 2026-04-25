@@ -7,6 +7,8 @@ scikit-learn
 fastapi
 uvicorn
 pydantic
-google-genai
+google-generativeai
 pytest
 python-dotenv
+faiss-cpu
+
