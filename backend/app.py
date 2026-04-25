@@ -1,10 +1,13 @@
 """FastAPI backend for startup simulation."""
 
 import os
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from agents.controller_agent import ControllerAgent
@@ -36,6 +39,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+FRONTEND_DIST = Path(__file__).resolve().parent.parent / "frontend" / "dist"
+FRONTEND_ASSETS = FRONTEND_DIST / "assets"
+if FRONTEND_ASSETS.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_ASSETS)), name="assets")
 
 # Global simulation components
 env = StartupEnv(max_steps=50, seed=42)
@@ -96,6 +104,19 @@ def _auto_actions(state: Dict[str, Any], mode: str = "trained") -> tuple[List[st
             actions.append("analyze_market")
             reasonings.append("Fallback due to error")
     return actions, reasonings
+
+
+@app.get("/")
+def index():
+    """Serve built frontend in container, fallback to API info locally."""
+    index_file = FRONTEND_DIST / "index.html"
+    if index_file.exists():
+        return FileResponse(index_file)
+    return {
+        "message": "Startup Lab API is running",
+        "docs": "/docs",
+        "state_endpoint": "/state",
+    }
 
 
 @app.get("/state")
