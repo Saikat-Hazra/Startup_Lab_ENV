@@ -11,4 +11,6 @@ google-generativeai
 pytest
 python-dotenv
 faiss-cpu
+requests
+pyyaml
 

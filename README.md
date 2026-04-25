@@ -2,6 +2,21 @@
 
 A multi-agent simulation system where autonomous agents learn to make better decisions through reflection, memory, and validation. Agents manage competing startups in a dynamic market, learning to maximize profit while avoiding costly mistakes.
 
+## Submission Deliverables
+
+- Hugging Face Space: [https://huggingface.co/spaces/smrutisanam/startup_lab_env](https://huggingface.co/spaces/smrutisanam/startup_lab_env)
+- Runnable training script: [`training/train.py`](training/train.py)
+- Training outputs directory: [`training/training_output`](training/training_output)
+- Writeup: [`WRITEUP.md`](WRITEUP.md)
+
+### Required Training Evidence (Inline)
+
+#### Reward Curve
+![Reward Curve](training/training_output/reward_curve.png)
+
+#### Loss Curve
+![Loss Curve](training/training_output/loss_curve.png)
+
 ## 🚀 Quick Start
 
 ### Prerequisites

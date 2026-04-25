@@ -110,6 +110,23 @@ def get_state() -> Dict[str, Any]:
     }
 
 
+@app.post("/reset")
+def reset_env() -> Dict[str, Any]:
+    global last_insights, history
+    state = env.reset()
+    last_insights = []
+    history = []
+    return {
+        "state": state,
+        "actions": [],
+        "rewards": [],
+        "insights": [],
+        "reasonings": [],
+        "commentary": "Environment reset.",
+        "done": False,
+    }
+
+
 @app.post("/step")
 def run_step(payload: StepRequest) -> Dict[str, Any]:
     global last_insights
@@ -129,7 +146,7 @@ def run_step(payload: StepRequest) -> Dict[str, Any]:
         reasonings.append("Default action")
     reasonings = reasonings[:env.num_startups]
 
-    next_state, rewards, done = env.step(actions)
+    next_state, rewards, done, _info = env.step(actions)
 
     for i in range(env.num_startups):
         memory.add_experience(state_before, actions[i], rewards[i])
