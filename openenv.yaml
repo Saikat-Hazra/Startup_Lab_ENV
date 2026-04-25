@@ -1,0 +1,112 @@
+name: startup_lab_env
+version: 0.1
+description: |
+  A multi-agent startup simulation environment for learning and reinforcement learning.
+  
+  Features:
+  - OpenAI Gym-compatible environment for startup decision-making
+  - Multi-agent architecture with specialized agents (planner, researcher, executor)
+  - Multi-tier memory system (episodic, semantic, strategy)
+  - Reflection and learning mechanisms
+  - Customizable reward functions
+  
+  The environment simulates realistic startup dynamics including market demand,
+  cash management, product quality, and competition. Agents learn to make optimal
+  decisions to maximize profit and growth over 50-step episodes.
+
+entry_point: env.startup_env:StartupEnv
+
+environment:
+  max_steps: 50
+  observation_space: Box(6,)  # [demand, cash, quality, competition, units, price]
+  action_space: Discrete(5)    # [build, improve, market, reduce_price, analyze]
+  
+actions:
+  - name: build_product
+    cost: 15000
+    description: "Build new product features, increase quality and sales"
+  
+  - name: improve_quality
+    cost: 8000
+    description: "Improve existing product quality"
+  
+  - name: run_marketing
+    cost: 10000
+    description: "Run marketing campaigns to increase market demand"
+  
+  - name: reduce_price
+    cost: 0
+    description: "Reduce unit price to boost sales volume"
+  
+  - name: analyze_market
+    cost: 2000
+    description: "Analyze market conditions for insights"
+
+state_variables:
+  market_demand:
+    range: [0, 100]
+    description: "Customer interest and market demand level"
+  
+  cash:
+    range: [0, 1000000]
+    description: "Available startup capital in dollars"
+  
+  product_quality:
+    range: [0, 100]
+    description: "Product quality rating"
+  
+  competition:
+    range: [0, 100]
+    description: "Market competition level"
+  
+  units_sold:
+    range: [0, 10000]
+    description: "Units sold in current step"
+  
+  price:
+    range: [0.1, 100]
+    description: "Unit selling price in dollars"
+
+reward_function:
+  components:
+    - growth_reward: 0.5 * units_sold
+    - profit_reward: max(0, profit / 100)
+    - cash_reward: cash / 100000 * 10
+    - cost_penalty: cost / 50000
+    - quality_reward: product_quality / 100 * 2
+  
+  description: "Balanced reward signal encouraging profitability, growth, and product quality"
+
+agents:
+  planner:
+    description: "High-level strategic planning agent"
+    memory: semantic_store, strategy_store
+  
+  researcher:
+    description: "Market research and analysis agent"
+    memory: episodic_store, semantic_store
+  
+  executor:
+    description: "Action execution and optimization agent"
+    memory: episodic_store, strategy_store
+
+memory_system:
+  episodic:
+    description: "Stores specific past events and experiences"
+  
+  semantic:
+    description: "Stores general knowledge and facts about the environment"
+  
+  strategy:
+    description: "Stores learned strategies and policies"
+  
+  reflection:
+    description: "Analyzes past experiences to improve future decisions"
+
+training:
+  algorithm: DQN
+  episodes: 1000
+  batch_size: 32
+  learning_rate: 0.001
+  gamma: 0.99
+  epsilon_decay: 0.995
