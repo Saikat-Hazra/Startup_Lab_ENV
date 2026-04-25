@@ -27,10 +27,10 @@ def run_simulation(steps: int = 25) -> None:
     for step in range(steps):
         actions = []
         for _ in range(env.num_startups):
-            action = agent.select_action(state, insights)
+            action, reasoning = agent.select_action(state, insights)
             action = validator.validate(state, action, history)
             if action not in agent.allowed_actions:
-                action = agent.refine_action(state, insights)
+                action, reasoning = agent.refine_action(state, insights)
                 action = validator.validate(state, action, history)
             actions.append(action)
 

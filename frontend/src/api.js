@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const client = axios.create({
-  baseURL: "http://localhost:8000",
+  baseURL: "http://localhost:8001",
 });
 
 export async function getState() {
@@ -9,7 +9,7 @@ export async function getState() {
   return data;
 }
 
-export async function stepSimulation() {
-  const { data } = await client.post("/step", {});
+export async function stepSimulation(mode = "trained") {
+  const { data } = await client.post("/step", { mode });
   return data;
 }

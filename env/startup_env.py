@@ -4,7 +4,7 @@ Multi-startup simulation environment.
 Two startups compete for shared market demand. Better quality captures more demand.
 """
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import copy
 import numpy as np
 
@@ -20,7 +20,7 @@ class StartupEnv:
         "analyze_market",
     ]
 
-    def __init__(self, max_steps: int = 50, seed: int | None = None):
+    def __init__(self, max_steps: int = 50, seed: Optional[int] = None):
         self.num_startups = 2
         self.max_steps = max_steps
         self.rng = np.random.default_rng(seed)

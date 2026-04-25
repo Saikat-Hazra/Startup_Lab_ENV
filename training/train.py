@@ -311,7 +311,7 @@ class Trainer:
                     controller_agent = self.controller_agents[agent_id]
 
                     # Agent selects action via memory-aware controller
-                    action = controller_agent.select_action(state, episode_history)
+                    action, reasoning = controller_agent.select_action(state, episode_history)
                     actions.append(action)
                     if controller_agent.decision_log:
                         strategy = controller_agent.decision_log[-1].get("strategy", {})

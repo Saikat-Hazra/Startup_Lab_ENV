@@ -28,13 +28,13 @@ def sample_state():
 
 def test_agent_returns_valid_action():
     agent = ControllerAgent(model=FakeModel("run_marketing"))
-    action = agent.select_action(sample_state(), [])
+    action, reasoning = agent.select_action(sample_state(), [])
     assert action in agent.allowed_actions
 
 
 def test_agent_fallback_for_invalid_output():
     agent = ControllerAgent(model=FakeModel("do_something_weird"))
-    action = agent.select_action(sample_state(), [])
+    action, reasoning = agent.select_action(sample_state(), [])
     assert action in agent.allowed_actions
 
 

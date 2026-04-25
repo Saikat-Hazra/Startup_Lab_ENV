@@ -1,53 +1,80 @@
 # Self-Improving Autonomous Startup Lab
 
-A hackathon project exploring how autonomous agents can run a startup simulation, learn from experience, and improve strategy over time.
+## Setup
 
-This project combines a multi-startup market environment, a role-based decision architecture, episodic memory with FAISS retrieval, and a reflection loop that turns failures into actionable strategy updates.
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd Startup_Lab_ENV
+   ```
 
-## Problem Statement
+2. **Set up environment variables**
+   - Copy `.env.example` to `.env` (if exists) or create `.env`
+   - Add your Gemini API key:
+     ```
+     GEMINI_API_KEY=your_api_key_here
+     ```
 
-Early-stage startups operate under uncertainty: they must balance product quality, pricing, marketing, and survival with limited cash. Traditional static policies break quickly when market conditions shift.
+3. **Install Python dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-The challenge we tackle:
+4. **Install frontend dependencies**
+   ```bash
+   cd frontend
+   npm install
+   cd ..
+   ```
 
-- Build autonomous startup agents that can act, learn, and adapt in a dynamic competitive market.
-- Move beyond one-step rewards by adding memory and reflection.
-- Detect strategy failures under specific conditions and update behavior accordingly.
+5. **Run the application**
+   ```bash
+   # Terminal 1: Start backend
+   PYTHONPATH=/Users/rajnish_sharma/Startup_Lab_ENV python3 -m uvicorn backend.app:app --host localhost --port 8001 --reload
 
-## Environment Design
+   # Terminal 2: Start frontend
+   cd frontend && npm run dev
+   ```
 
-The simulation is implemented in `env/startup_env.py` as a Gym-style multi-agent environment.
+6. **Open browser**
+   - Frontend: http://localhost:5179 (or next available port)
+   - Backend API: http://localhost:8001
 
-- **Entities:** Multiple startups competing in one shared market.
-- **Per-startup state:** `cash`, `product_quality`, `units_sold`, `price`.
-- **Shared market state:** `market_demand`, `competition`.
-- **Action space (5 discrete actions):**
-  - `build_product`
-  - `improve_quality`
-  - `run_marketing`
-  - `reduce_price`
-  - `analyze_market`
-- **Dynamics:** Market demand decays over time, competition shifts, quality degrades without investment, and sales are allocated by attractiveness.
+## Problem
 
-This setup creates realistic trade-offs between growth, profitability, and resilience.
+AI agents fail in long-term decision making.
 
-## Multi-Agent System
+## Solution
 
-The controller architecture in `agents/controller_agent.py` uses specialized roles:
+Multi-agent system with:
 
-- **Researcher:** Analyzes action/reward history and trend signals.
-- **Planner:** Chooses goals and action priorities from the current state.
-- **Executor:** Selects concrete actions with exploration/exploitation behavior.
+- Memory
+- Reflection
+- Validation
+- Gemini reasoning
 
-Each startup has its own controller, and all startups act simultaneously at each step. This produces emergent behavior under competition and provides a clean interface for future LLM-driven policies.
+## Architecture
 
-## Memory Architecture
+```mermaid
+graph TD
+    A[Frontend UI] --> B[Backend API]
+    B --> C[Controller Agent]
+    B --> D[Environment]
+    C --> E[Gemini LLM]
+    B --> F[Memory Store]
+    B --> G[Reflection]
+    B --> H[Validator]
+```
 
-The memory layer (`memory/episodic_store.py` + `memory/reflection.py`) enables learning from experience rather than only immediate rewards.
+## Results
 
-- **Episodic store**
-  - Stores `(state, action, reward, next_state)` experiences.
-  - Converts states into normalized numeric embeddings.
+- Reward ↑
+- Mistakes ↓
+- Strategy evolution
+
+## Impact
+
+Real-world decision systems
   - Indexes embeddings in **FAISS** for fast similarity search.
   - Supports retrieval via `search_similar(state, k=3)`.
 

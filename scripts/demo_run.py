@@ -64,7 +64,7 @@ def run_demo() -> None:
         strategy_signature: List[Tuple[str, str]] = []
 
         for i, controller in enumerate(controllers):
-            action = controller.select_action(states[i], histories[i])
+            action, reasoning = controller.select_action(states[i], histories[i])
             actions.append(action)
             strategy = controller.decision_log[-1]["strategy"]
             strategy_signature.append(
