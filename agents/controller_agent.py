@@ -451,6 +451,14 @@ class ControllerAgent:
         # Role 2: Plan strategy (pass insights)
         strategy = self.planner.plan(state, analysis, insights=self.insights)
         
+        # Penalize actions that reflection identified as failed
+        for action_idx in self.failed_actions:
+            if action_idx in strategy["priorities"]:
+                strategy["priorities"][action_idx] *= 0.2
+                strategy["priorities"][action_idx] = max(
+                    0.0, strategy["priorities"][action_idx]
+                )
+        
         # Role 3: Execute action
         action = self.executor.act(strategy["priorities"], state, analysis)
         

@@ -14,16 +14,23 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from env.startup_env import StartupEnv
 
 
-def format_state(state: dict) -> str:
-    """Format state dictionary for pretty printing."""
+def format_state(state: np.ndarray, num_startups: int) -> str:
+    """Format state array for pretty printing."""
     lines = [
-        f"  Market Demand:    {state['market_demand']:.1f}",
-        f"  Cash:             ${state['cash']:>12,.0f}",
-        f"  Product Quality:  {state['product_quality']:.1f}",
-        f"  Competition:      {state['competition']:.1f}",
-        f"  Units Sold:       {state['units_sold']:.0f}",
-        f"  Price:            ${state['price']:.2f}",
+        f"Market Demand:    {state[num_startups*4]:.1f}",
+        f"Competition:      {state[num_startups*4+1]:.1f}",
     ]
+    
+    for i in range(num_startups):
+        base_idx = i * 4
+        lines.extend([
+            f"\nStartup {i+1}:",
+            f"  Cash:             ${state[base_idx]:>12,.0f}",
+            f"  Product Quality:  {state[base_idx+1]:.1f}",
+            f"  Units Sold:       {state[base_idx+2]:.0f}",
+            f"  Price:            ${state[base_idx+3]:.2f}",
+        ])
+    
     return "\n".join(lines)
 
 
@@ -39,26 +46,28 @@ def format_action(action: int) -> str:
     return actions.get(action, f"unknown_action_{action}")
 
 
-def run_simulation(num_episodes: int = 10, max_steps: int = None, verbose: bool = True):
+def run_simulation(num_episodes: int = 10, max_steps: int = None, num_startups: int = 2, verbose: bool = True):
     """
     Run startup simulation for specified episodes.
     
     Args:
         num_episodes: Number of episodes to run
         max_steps: Max steps per episode (None = use env default)
+        num_startups: Number of competing startups
         verbose: Whether to print detailed output
     """
     # Create environment
-    env_kwargs = {}
+    env_kwargs = {"num_startups": num_startups}
     if max_steps is not None:
         env_kwargs["max_steps"] = max_steps
     
     env = StartupEnv(**env_kwargs)
     
     print("=" * 70)
-    print("STARTUP SIMULATION - DEMO RUN")
+    print("MULTI-STARTUP SIMULATION - DEMO RUN")
     print("=" * 70)
     print(f"Episodes: {num_episodes}")
+    print(f"Startups: {num_startups}")
     print(f"Max steps per episode: {env.max_steps}\n")
     
     episode_rewards = []
@@ -79,7 +88,7 @@ def run_simulation(num_episodes: int = 10, max_steps: int = None, verbose: bool 
         actions_taken = []
         
         print("\nInitial State:")
-        print(format_state(state))
+        print(format_state(state, num_startups))
         
         print("\n" + "-" * 70)
         print("STEP DETAILS")
@@ -87,25 +96,24 @@ def run_simulation(num_episodes: int = 10, max_steps: int = None, verbose: bool 
         
         # Run episode
         for step in range(env.max_steps):
-            # Random action
-            action = env.action_space.sample()
-            actions_taken.append(action)
+            # Random actions for all startups
+            actions = list(env.action_space.sample())
+            actions_taken.append(actions)
             
             # Execute step
-            next_state, reward, done, info = env.step(action)
+            next_state, rewards, done, info = env.step(actions)
             
-            episode_reward += reward
-            episode_profit += info.get("profit", 0.0)
+            episode_reward += sum(rewards)
+            episode_profit += sum(info.get("profits", [0.0]))
             
             # Print step information
             if verbose:
-                print(
-                    f"\nStep {step + 1}:\n"
-                    f"  Action:     {format_action(action)}\n"
-                    f"  Reward:     {reward:>8.2f}\n"
-                    f"  Profit:     ${info.get('profit', 0):>10,.0f}\n"
-                    f"  Total Cash: ${info.get('total_cash', 0):>10,.0f}"
-                )
+                print(f"\nStep {step + 1}:")
+                for i, (action, reward) in enumerate(zip(actions, rewards)):
+                    print(f"  Startup {i+1} - Action: {format_action(action)}, Reward: {reward:>8.2f}")
+                print(f"  Total Reward:     {sum(rewards):>8.2f}")
+                print(f"  Total Profit:     ${sum(info.get('profits', [0.0])):>10,.0f}")
+                print(f"  Total Cash:       ${sum(info.get('total_cash', [0.0])):>10,.0f}")
             
             state = next_state
             
@@ -118,20 +126,28 @@ def run_simulation(num_episodes: int = 10, max_steps: int = None, verbose: bool 
         print("\n" + "-" * 70)
         print("FINAL STATE")
         print("-" * 70)
-        print(format_state(state))
+        print(format_state(state, num_startups))
         
         print("\n" + "-" * 70)
         print("EPISODE SUMMARY")
         print("-" * 70)
         print(f"  Total Steps:        {step + 1}")
-        print(f"  Actions:            {', '.join(format_action(a) for a in actions_taken[:5])}")
-        if len(actions_taken) > 5:
-            print(f"                      ... ({len(actions_taken) - 5} more)")
+        print(f"  Actions (last):     {', '.join(format_action(a) for a in actions_taken[-1][:3])}")
+        if len(actions_taken[-1]) > 3:
+            print(f"                      ... ({len(actions_taken[-1]) - 3} more)")
         print(f"  Total Reward:       {episode_reward:.2f}")
         print(f"  Total Profit:       ${episode_profit:,.0f}")
-        print(f"  Final Cash:         ${state['cash']:,.0f}")
-        print(f"  Final Quality:      {state['product_quality']:.1f}")
-        print(f"  Final Demand:       {state['market_demand']:.1f}")
+        print(f"  Final Demand:       {state[num_startups*4]:.1f}")
+        print(f"  Final Competition:  {state[num_startups*4+1]:.1f}")
+        
+        # Show final state for each startup
+        for i in range(num_startups):
+            base_idx = i * 4
+            print(f"  Startup {i+1} Final:")
+            print(f"    Cash:             ${state[base_idx]:,.0f}")
+            print(f"    Quality:          {state[base_idx+1]:.1f}")
+            print(f"    Units Sold:       {state[base_idx+2]:.0f}")
+            print(f"    Price:            ${state[base_idx+3]:.2f}")
         
         # Track metrics
         episode_rewards.append(episode_reward)
@@ -167,8 +183,8 @@ def run_simulation(num_episodes: int = 10, max_steps: int = None, verbose: bool 
 
 def run_quick_demo():
     """Run a quick 3-episode demo for testing."""
-    print("\n🚀 Running quick demo (3 episodes)...\n")
-    return run_simulation(num_episodes=3, verbose=True)
+    print("\n🚀 Running quick demo (3 episodes, 2 startups)...\n")
+    return run_simulation(num_episodes=3, num_startups=2, verbose=True)
 
 
 def run_quiet_simulation(num_episodes: int = 10):
@@ -187,12 +203,18 @@ def run_quiet_simulation(num_episodes: int = 10):
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="Run startup simulation demo")
+    parser = argparse.ArgumentParser(description="Run multi-startup simulation demo")
     parser.add_argument(
         "--episodes",
         type=int,
         default=10,
         help="Number of episodes to run (default: 10)",
+    )
+    parser.add_argument(
+        "--startups",
+        type=int,
+        default=2,
+        help="Number of competing startups (default: 2)",
     )
     parser.add_argument(
         "--max-steps",
@@ -220,6 +242,7 @@ if __name__ == "__main__":
     else:
         run_simulation(
             num_episodes=args.episodes,
+            num_startups=args.startups,
             max_steps=args.max_steps,
             verbose=True,
         )

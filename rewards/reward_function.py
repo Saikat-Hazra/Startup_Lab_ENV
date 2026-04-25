@@ -71,6 +71,7 @@ class RewardFunction:
         adaptation_reward = self._adaptation_reward(previous_state, current_state)
         repetition_penalty = self._repetition_penalty(action, history)
         failed_action_penalty = self._failed_action_penalty(action, history)
+        diverse_action_bonus = self._diverse_action_bonus(action, history)
         
         # Combine rewards with weights
         total_reward = (
@@ -79,6 +80,7 @@ class RewardFunction:
             + self.adaptation_weight * adaptation_reward
             + self.repetition_penalty_weight * repetition_penalty
             + self.repetition_penalty_weight * failed_action_penalty  # Use same weight as repetition
+            + self.learning_weight * diverse_action_bonus
         )
         
         return float(total_reward)
@@ -268,12 +270,39 @@ class RewardFunction:
         
         return 0.0
     
+    def _diverse_action_bonus(
+        self,
+        action: int,
+        history: List[Dict[str, Any]],
+    ) -> float:
+        """
+        Reward taking a different action after repeated failures.
+
+        Args:
+            action: Current action
+            history: Episode history
+
+        Returns:
+            Positive bonus for changing strategy after failing streak
+        """
+        if len(history) < 3:
+            return 0.0
+
+        recent_actions = [h.get("action", -1) for h in history[-3:]]
+        recent_rewards = [h.get("reward", 0.0) for h in history[-3:]]
+
+        if len(set(recent_actions)) == 1 and all(r < 0 for r in recent_rewards):
+            if action != recent_actions[-1]:
+                return 1.5
+
+        return 0.0
+
     def record_failed_action(self, action: int) -> None:
         """
         Record that an action failed to improve the state.
-        
+
         Used to track which actions tend to fail, informing learning reward.
-        
+
         Args:
             action: Action that failed
         """

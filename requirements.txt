@@ -1,0 +1,7 @@
+numpy
+gymnasium
+matplotlib
+torch
+transformers
+datasets
+scikit-learn    

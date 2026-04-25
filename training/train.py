@@ -13,6 +13,12 @@ import json
 from collections import deque
 import os
 
+try:
+    import matplotlib.pyplot as plt
+    MATPLOTLIB_AVAILABLE = True
+except ImportError:
+    MATPLOTLIB_AVAILABLE = False
+
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
@@ -233,16 +239,18 @@ class Trainer:
             env: Optional pre-initialized environment
         """
         self.config = config
-        self.env = env or StartupEnv(max_steps=config.max_steps)
+        self.env = env or StartupEnv(num_startups=config.num_agents, max_steps=config.max_steps)
         
         # Create agents
         self.agents = {}
         self.controller_agents = {}  # Memory-aware agents
+        # For multi-startup: state_size = num_startups * 4 + 2 (cash, quality, units, price per startup + market_demand, competition)
+        state_size = config.num_agents * 4 + 2
         for i in range(config.num_agents):
             agent_id = f"agent_{i}"
             self.agents[agent_id] = DQNAgent(
                 action_size=5,
-                state_size=6,
+                state_size=state_size,
                 config=config,
                 agent_id=agent_id,
             )
@@ -287,55 +295,66 @@ class Trainer:
             
             # Reset environment and all agents
             state = self.env.reset()
+            for controller_agent in self.controller_agents.values():
+                controller_agent.reset()
             
-            # Episode loop
+            # Episode loop - all agents act simultaneously
             for step in range(self.config.max_steps):
-                # Select active agent (round-robin for multi-agent)
-                agent_idx = step % self.config.num_agents
-                agent_id = f"agent_{agent_idx}"
-                agent = self.agents[agent_id]
-                
-                # Agent selects action
-                action = agent.act(state, training=True)
-                
-                # Execute step
-                next_state, reward, done, info = self.env.step(action)
-                
-                # Store in agent memory
-                agent.remember(state, action, reward, next_state, done)
-                
-                # 🧠 MEMORY STEP 1: Store experience in episodic memory
-                self.episodic_memory.add_experience(state, action, reward, next_state)
-                
-                # Track history for reflection
+                # All agents select actions simultaneously
+                actions = []
+                for agent_id in self.agents.keys():
+                    dqn_agent = self.agents[agent_id]
+                    controller_agent = self.controller_agents[agent_id]
+
+                    # Agent selects action via memory-aware controller
+                    action = controller_agent.select_action(state, episode_history)
+                    actions.append(action)
+
+                # Execute step for all startups
+                next_state, rewards, done, info = self.env.step(actions)
+
+                # Process results for each agent
+                for i, agent_id in enumerate(self.agents.keys()):
+                    dqn_agent = self.agents[agent_id]
+                    reward = rewards[i]
+
+                    # Store in DQN replay memory using composite reward
+                    dqn_agent.remember(state, actions[i], reward, next_state, done)
+
+                    # 🧠 MEMORY STEP 1: Store experience in episodic memory
+                    self.episodic_memory.add_experience(state, actions[i], reward, next_state)
+
+                # Track history for reflection (use first agent's perspective for simplicity)
                 episode_history.append({
                     "state": state.copy(),
-                    "action": action,
-                    "reward": reward,
+                    "actions": actions,
+                    "rewards": rewards,
                     "next_state": next_state.copy(),
                 })
-                
-                # Track repeated actions
+
+                # Track repeated actions (simplified - count if any agent repeats)
                 if len(episode_history) > 1:
-                    if episode_history[-1]["action"] == episode_history[-2]["action"]:
-                        repeated_action_count += 1
-                
-                # Track metrics
-                episode_reward += reward
+                    prev_actions = episode_history[-2]["actions"]
+                    for i, action in enumerate(actions):
+                        if action == prev_actions[i]:
+                            repeated_action_count += 1
+
+                # Track metrics (sum of all agents' rewards)
+                episode_reward += sum(rewards)
                 episode_length += 1
-                episode_profit += info.get("profit", 0.0)
-                
+                episode_profit += sum(info.get("profits", [0.0]))
+
                 state = next_state
-                
+
                 # 🧠 MEMORY STEP 2: Periodically reflect and update strategy
                 if step > 0 and step % 5 == 0 and len(episode_history) >= 2:
                     # Generate insights from memory
                     insights = self.reflection.generate_insights(self.episodic_memory)
-                    
-                    # Update agent strategy with insights
-                    controller_agent = self.controller_agents[agent_id]
-                    controller_agent.update_strategy(insights)
-                
+
+                    # Update all agents' strategies with insights
+                    for controller_agent in self.controller_agents.values():
+                        controller_agent.update_strategy(insights)
+
                 if done:
                     break
             
@@ -370,25 +389,24 @@ class Trainer:
                 avg_profit = np.mean(self.episode_profits[-self.config.log_interval :])
                 avg_insights = np.mean(self.episode_insights[-self.config.log_interval :])
                 avg_repeated = np.mean(self.episode_repeated_actions[-self.config.log_interval :])
-                
+                sample_insights = "; ".join(final_insights[:3]) if final_insights else "None"
+
                 print(
                     f"Episode {episode + 1}/{self.config.num_episodes} | "
                     f"Avg Reward: {avg_reward:.2f} | "
                     f"Avg Profit: ${avg_profit:,.0f} | "
                     f"Insights: {avg_insights:.1f} | "
-                    f"Repeated: {avg_repeated:.1f}"
+                    f"Repeated: {avg_repeated:.1f} | "
+                    f"Sample insights: {sample_insights}"
                 )
-        
-        print("\nTraining complete!")
-        return self._compile_results()
-    
+
     def evaluate(self, num_episodes: int = 10) -> Dict[str, Any]:
         """
         Evaluate trained agents without exploration.
-        
+
         Args:
             num_episodes: Number of evaluation episodes
-        
+
         Returns:
             Evaluation results
         """
@@ -400,23 +418,22 @@ class Trainer:
         for episode in range(num_episodes):
             episode_reward = 0.0
             episode_profit = 0.0
-            
+
             state = self.env.reset()
-            
+
             for step in range(self.config.max_steps):
-                # Round-robin agent selection
-                agent_idx = step % self.config.num_agents
-                agent = self.agents[f"agent_{agent_idx}"]
-                
-                # Greedy action (no exploration)
-                action = agent.act(state, training=False)
-                
-                next_state, reward, done, info = self.env.step(action)
-                episode_reward += reward
-                episode_profit += info.get("profit", 0.0)
-                
+                # All agents act simultaneously (greedy actions, no exploration)
+                actions = []
+                for agent in self.agents.values():
+                    action = agent.act(state, training=False)
+                    actions.append(action)
+
+                next_state, rewards, done, info = self.env.step(actions)
+                episode_reward += sum(rewards)
+                episode_profit += sum(info.get("profits", [0.0]))
+
                 state = next_state
-                
+
                 if done:
                     break
             
@@ -492,6 +509,81 @@ class Trainer:
             filepath = models_dir / f"{agent_id}_final.json"
             agent.save(str(filepath))
 
+    def plot_rewards(self) -> None:
+        """
+        Plot training rewards per episode and save as PNG.
+
+        Creates visualization with:
+        - Episode rewards line plot
+        - Moving average overlay
+        - Clear axis labels and title
+        """
+        if not MATPLOTLIB_AVAILABLE:
+            print("Warning: matplotlib not available, skipping reward plot")
+            return
+
+        if not self.episode_rewards:
+            print("No episode rewards to plot")
+            return
+
+        # Create figure and axis
+        fig, ax = plt.subplots(figsize=(12, 6))
+
+        # Plot episode rewards
+        episodes = np.arange(1, len(self.episode_rewards) + 1)
+        ax.plot(
+            episodes,
+            self.episode_rewards,
+            label="Episode Reward",
+            color="steelblue",
+            alpha=0.7,
+            linewidth=1.5,
+        )
+
+        # Plot moving average (window=10)
+        if len(self.episode_rewards) >= 10:
+            moving_avg = np.convolve(
+                self.episode_rewards, np.ones(10) / 10, mode="valid"
+            )
+            ax.plot(
+                episodes[9:],
+                moving_avg,
+                label="10-Episode Moving Average",
+                color="coral",
+                linewidth=2.5,
+            )
+
+        # Labels and title
+        ax.set_xlabel("Episode", fontsize=12, fontweight="bold")
+        ax.set_ylabel("Total Reward", fontsize=12, fontweight="bold")
+        ax.set_title("Training Rewards Over Episodes", fontsize=14, fontweight="bold")
+        ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=11, loc="best")
+
+        # Add statistics text box
+        stats_text = (
+            f"Max Reward: {np.max(self.episode_rewards):.2f}\n"
+            f"Avg Reward: {np.mean(self.episode_rewards):.2f}\n"
+            f"Final Reward: {self.episode_rewards[-1]:.2f}"
+        )
+        ax.text(
+            0.98,
+            0.05,
+            stats_text,
+            transform=ax.transAxes,
+            fontsize=10,
+            verticalalignment="bottom",
+            horizontalalignment="right",
+            bbox=dict(boxstyle="round", facecolor="wheat", alpha=0.5),
+        )
+
+        # Save plot
+        plot_file = self.output_dir / "reward_plot.png"
+        plt.tight_layout()
+        plt.savefig(plot_file, dpi=150, bbox_inches="tight")
+        print(f"\nReward plot saved to {plot_file}")
+        plt.close()
+
 
 def main():
     """Main training entry point."""
@@ -499,7 +591,7 @@ def main():
     config = TrainingConfig()
     
     # Create environment
-    env = StartupEnv(max_steps=config.max_steps)
+    env = StartupEnv(num_startups=config.num_agents, max_steps=config.max_steps)
     
     # Create trainer
     trainer = Trainer(config, env)
@@ -513,6 +605,9 @@ def main():
     # Save results and models
     trainer.save_results()
     trainer.save_agents()
+    
+    # Plot rewards
+    trainer.plot_rewards()
     
     print(f"\nTraining artifacts saved to {trainer.output_dir}")
 
