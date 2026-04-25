@@ -1,3 +1,234 @@
+
+---
+title: Startup Lab Env
+emoji: "🚀"
+colorFrom: purple
+colorTo: indigo
+sdk: docker
+sdk_version: "latest"
+python_version: "3.11"
+app_file: app.py
+pinned: false
+---
+
+
+Project overview
+
+
+🚀 Self-Improving Autonomous Startup Lab
+
+What if AI agents didn’t just act — but actually learned from their mistakes and evolved their strategies over time?
+
+🧠 Introduction
+
+Modern AI agents are powerful, but they still struggle with one critical capability:
+
+They don’t truly learn from experience in dynamic environments.
+
+Most systems:
+
+Repeat mistakes
+Optimize short-term gains
+Lack memory and reflection
+
+This project tackles that gap by building a self-improving multi-agent system where AI startups:
+
+Compete in a dynamic market
+Learn from past failures
+Adapt strategies over time
+Improve decision-making continuously
+💡 The Idea
+
+We built a Startup Simulation Environment where:
+
+Multiple AI agents manage competing startups
+Each agent uses:
+Memory 📚
+Reflection 🔁
+Validation ⚖️
+LLM reasoning 🧠
+
+The goal?
+
+Maximize long-term profit while minimizing repeated mistakes.
+
+🏗️ System Overview
+
+At a high level, the system looks like this:
+
+⚙️ Core Components
+1. 🏢 Startup Environment
+
+The environment simulates a competitive market:
+
+Multiple startups compete for demand
+Market conditions fluctuate
+Quality determines market share
+
+Each startup has:
+
+💰 Cash
+⭐ Product Quality
+📈 Market Share
+2. 🧠 Controller Agent (LLM-Powered)
+
+The brain of the system.
+
+Powered by Google Gemini API, the agent:
+
+Understands the current state
+Uses past learnings
+Chooses optimal actions
+Example reasoning:
+State: Low cash, declining demand  
+Insight: Marketing failed in low cash scenarios  
+
+Decision → Improve quality instead of marketing
+3. 📚 Memory System
+Episodic Memory
+
+Stores:
+
+State
+Action
+Reward
+Retrieval
+
+Finds:
+
+Similar past situations
+Relevant failures
+4. 🔁 Reflection Engine
+
+Transforms experience into learning.
+
+Example insights:
+
+“Marketing failed 3 times when cash < $40K”
+“Improving quality increases long-term reward”
+
+These insights are fed back into the agent.
+
+5. ⚖️ Decision Validator
+
+Prevents bad decisions:
+
+No spending when cash is low
+Avoid repeating failed actions
+Enforce realistic constraints
+6. 🔁 Self-Correction Loop
+
+If the agent makes a poor decision:
+
+Detect failure
+Retry with improved reasoning
+Apply safer action
+🎮 Simulation Dynamics
+Available Actions
+Action	Purpose
+build_product	Long-term growth
+improve_quality	Competitive advantage
+run_marketing	Boost demand
+reduce_price	Increase sales volume
+analyze_market	Gather insights
+Reward System
+
+The reward balances:
+
+Profit 💰
+Growth 📈
+Smart decision-making 🧠
+Avoiding repeated mistakes ❌
+📊 Training & Results
+
+The system demonstrates real learning:
+
+Before Training:
+Random actions
+Repeated mistakes
+Low rewards
+After Training:
+Strategic decisions
+Adaptive behavior
+Higher rewards
+📈 Reward Curve
+
+📉 Loss Curve
+
+🧠 What Makes This Different?
+
+Most projects:
+❌ Static agents
+❌ No memory
+❌ No adaptation
+
+This system:
+✅ Learns from experience
+✅ Builds internal knowledge
+✅ Adapts strategies dynamically
+✅ Uses LLM reasoning + validation
+
+🌍 Real-World Impact
+
+This approach can be applied to:
+
+🏢 Business decision systems
+🚚 Logistics optimization
+🤖 Autonomous agents
+📊 Financial strategy modeling
+🖥️ Interactive Demo
+
+👉 Hugging Face Space:
+https://huggingface.co/spaces/smrutisanam/startup_lab_env
+
+You can:
+
+Run simulations
+Observe agent decisions
+Track learning in real-time
+🐳 Deployment
+
+The system is fully containerized using Docker, ensuring:
+
+Reproducibility
+Easy deployment
+Cross-platform compatibility
+🧪 How It Works (Step-by-Step)
+Agent observes environment
+Retrieves relevant memory
+Uses Gemini to decide action
+Validator checks decision
+Environment updates
+Reward computed
+Memory updated
+Reflection generates insights
+Agent improves
+🔮 Future Improvements
+Multi-agent negotiation systems
+Advanced world modeling
+Better long-term planning
+Richer UI dashboards
+Multi-market simulations
+🏁 Conclusion
+
+This project moves beyond traditional AI systems.
+
+Instead of training agents to act,
+we train them to improve.
+
+🙌 Final Thought
+
+The future of AI isn’t just smarter models —
+it’s systems that learn, adapt, and evolve over time.
+
+📎 Links
+Hugging Face Space: https://huggingface.co/spaces/smrutisanam/startup_lab_env
+Training Script: training/train.py
+Writeup: WRITEUP.md
+
+
+
+
 # Self-Improving Autonomous Startup Lab
 
 A multi-agent simulation system where autonomous agents learn to make better decisions through reflection, memory, and validation. Agents manage competing startups in a dynamic market, learning to maximize profit while avoiding costly mistakes.
