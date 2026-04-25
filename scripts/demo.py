@@ -92,7 +92,7 @@ def run_demo() -> None:
         actions = []
         strategies = []
         for i, controller in enumerate(controllers):
-            action = controller.select_action(states[i], histories[i])
+            action, reasoning = controller.select_action(states[i], histories[i])
             actions.append(action)
             strategies.append(controller.decision_log[-1]["strategy"])
 

@@ -3,7 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 export default function Graph({ rewardHistory }) {
   return (
-    <div className="rounded-xl border p-4 shadow-sm bg-white">
+    <div className="rounded-xl border p-4 shadow-sm bg-gray-800 text-white">
       <h3 className="text-lg font-semibold mb-3">Reward Over Time</h3>
       <div style={{ width: "100%", height: 280 }}>
         <ResponsiveContainer>
