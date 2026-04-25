@@ -1,7 +1,11 @@
 numpy
-gymnasium
 matplotlib
 torch
 transformers
 datasets
-scikit-learn    
+scikit-learn
+fastapi
+uvicorn
+pydantic
+google-generativeai
+pytest

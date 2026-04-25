@@ -11,6 +11,7 @@ import numpy as np
 from typing import Dict, List, Tuple, Any
 import json
 from collections import deque
+from collections import Counter
 import os
 
 try:
@@ -265,6 +266,8 @@ class Trainer:
         self.episode_rewards: List[float] = []
         self.episode_lengths: List[int] = []
         self.episode_profits: List[float] = []
+        self.episode_avg_cash: List[float] = []
+        self.episode_unique_strategies: List[int] = []
         self.episode_insights: List[int] = []  # Number of insights per episode
         self.episode_repeated_actions: List[int] = []  # Count of repeated actions
         self.best_reward = -float("inf")
@@ -292,6 +295,7 @@ class Trainer:
             episode_profit = 0.0
             episode_history: List[Dict[str, Any]] = []
             repeated_action_count = 0
+            episode_strategy_signatures = set()
             
             # Reset environment and all agents
             state = self.env.reset()
@@ -309,6 +313,13 @@ class Trainer:
                     # Agent selects action via memory-aware controller
                     action = controller_agent.select_action(state, episode_history)
                     actions.append(action)
+                    if controller_agent.decision_log:
+                        strategy = controller_agent.decision_log[-1].get("strategy", {})
+                        signature = (
+                            strategy.get("primary_goal", "unknown"),
+                            strategy.get("risk_level", "unknown"),
+                        )
+                        episode_strategy_signatures.add(signature)
 
                 # Execute step for all startups
                 next_state, rewards, done, info = self.env.step(actions)
@@ -375,6 +386,11 @@ class Trainer:
             self.episode_rewards.append(episode_reward)
             self.episode_lengths.append(episode_length)
             self.episode_profits.append(episode_profit)
+            avg_cash = float(
+                np.mean([startup.get("cash", 0.0) for startup in self.env.startup_states])
+            )
+            self.episode_avg_cash.append(avg_cash)
+            self.episode_unique_strategies.append(len(episode_strategy_signatures))
             self.episode_insights.append(len(final_insights))
             self.episode_repeated_actions.append(repeated_action_count)
             
@@ -400,20 +416,23 @@ class Trainer:
                     f"Sample insights: {sample_insights}"
                 )
 
-    def evaluate(self, num_episodes: int = 10) -> Dict[str, Any]:
+    def evaluate(self, num_episodes: int = 10, random_policy: bool = False) -> Dict[str, Any]:
         """
-        Evaluate trained agents without exploration.
+        Evaluate policy performance across episodes.
 
         Args:
             num_episodes: Number of evaluation episodes
+            random_policy: If True, use random actions instead of trained policy
 
         Returns:
             Evaluation results
         """
-        print(f"\nEvaluating for {num_episodes} episodes (no exploration)...\n")
+        policy_label = "random policy" if random_policy else "trained policy (no exploration)"
+        print(f"\nEvaluating for {num_episodes} episodes ({policy_label})...\n")
         
         eval_rewards = []
         eval_profits = []
+        action_counter = Counter()
         
         for episode in range(num_episodes):
             episode_reward = 0.0
@@ -422,11 +441,17 @@ class Trainer:
             state = self.env.reset()
 
             for step in range(self.config.max_steps):
-                # All agents act simultaneously (greedy actions, no exploration)
+                # All agents act simultaneously
                 actions = []
-                for agent in self.agents.values():
-                    action = agent.act(state, training=False)
-                    actions.append(action)
+                if random_policy:
+                    actions = list(self.env.action_space.sample())
+                else:
+                    # Greedy actions from trained agents (no exploration)
+                    for agent in self.agents.values():
+                        action = agent.act(state, training=False)
+                        actions.append(action)
+                
+                action_counter.update(actions)
 
                 next_state, rewards, done, info = self.env.step(actions)
                 episode_reward += sum(rewards)
@@ -447,6 +472,7 @@ class Trainer:
             f"Evaluation Results:\n"
             f"  Average Reward: {avg_eval_reward:.2f}\n"
             f"  Average Profit: ${avg_eval_profit:,.0f}\n"
+            f"  Action Distribution: {dict(sorted(action_counter.items()))}\n"
         )
         
         return {
@@ -454,6 +480,8 @@ class Trainer:
             "eval_profits": eval_profits,
             "avg_reward": float(avg_eval_reward),
             "avg_profit": float(avg_eval_profit),
+            "action_distribution": {int(k): int(v) for k, v in action_counter.items()},
+            "policy": "random" if random_policy else "trained",
         }
     
     def _save_checkpoint(self, episode: int) -> None:
@@ -480,11 +508,15 @@ class Trainer:
             "max_reward": float(np.max(self.episode_rewards)),
             "avg_length": float(np.mean(self.episode_lengths)),
             "avg_profit": float(np.mean(self.episode_profits)),
+            "avg_cash": float(np.mean(self.episode_avg_cash)),
+            "avg_unique_strategies": float(np.mean(self.episode_unique_strategies)),
             "avg_insights_generated": float(np.mean(self.episode_insights)),
             "avg_repeated_actions": float(np.mean(self.episode_repeated_actions)),
             "episode_rewards": self.episode_rewards,
             "episode_lengths": self.episode_lengths,
             "episode_profits": self.episode_profits,
+            "episode_avg_cash": self.episode_avg_cash,
+            "episode_unique_strategies": self.episode_unique_strategies,
             "episode_insights": self.episode_insights,
             "episode_repeated_actions": self.episode_repeated_actions,
             "memory_stats": self.episodic_memory.get_statistics(),
@@ -584,6 +616,64 @@ class Trainer:
         print(f"\nReward plot saved to {plot_file}")
         plt.close()
 
+    def _plot_metric(
+        self,
+        values: List[float],
+        ylabel: str,
+        title: str,
+        filename: str,
+        color: str = "steelblue",
+    ) -> None:
+        """
+        Plot a per-episode metric and save as PNG.
+        """
+        if not MATPLOTLIB_AVAILABLE:
+            print(f"Warning: matplotlib not available, skipping {filename}")
+            return
+        if not values:
+            print(f"No values available to plot {filename}")
+            return
+
+        episodes = np.arange(1, len(values) + 1)
+        fig, ax = plt.subplots(figsize=(12, 6))
+        ax.plot(
+            episodes,
+            values,
+            color=color,
+            linewidth=2.0,
+            alpha=0.85,
+        )
+        ax.set_xlabel("Episode", fontsize=12, fontweight="bold")
+        ax.set_ylabel(ylabel, fontsize=12, fontweight="bold")
+        ax.set_title(title, fontsize=14, fontweight="bold")
+        ax.grid(True, alpha=0.3)
+
+        plot_file = self.output_dir / filename
+        plt.tight_layout()
+        plt.savefig(plot_file, dpi=150, bbox_inches="tight")
+        print(f"{title} plot saved to {plot_file}")
+        plt.close()
+
+    def plot_average_cash(self) -> None:
+        """Plot average startup cash vs episode and save as PNG."""
+        self._plot_metric(
+            values=self.episode_avg_cash,
+            ylabel="Average Startup Cash ($)",
+            title="Average Startup Cash Over Episodes",
+            filename="average_cash_plot.png",
+            color="seagreen",
+        )
+
+    def plot_unique_strategies(self) -> None:
+        """Plot number of unique strategies vs episode and save as PNG."""
+        self._plot_metric(
+            values=[float(v) for v in self.episode_unique_strategies],
+            ylabel="Unique Strategies (Count)",
+            title="Unique Strategies Over Episodes",
+            filename="unique_strategies_plot.png",
+            color="darkorange",
+        )
+
 
 def main():
     """Main training entry point."""
@@ -596,11 +686,18 @@ def main():
     # Create trainer
     trainer = Trainer(config, env)
     
+    # Evaluate before training (random baseline)
+    before_results = trainer.evaluate(num_episodes=5, random_policy=True)
+    print(f"Before Training Reward: {before_results['avg_reward']:.2f}")
+    print(f"Before Training Action Distribution: {before_results['action_distribution']}")
+    
     # Run training
     trainer.train()
     
-    # Evaluate
-    trainer.evaluate(num_episodes=10)
+    # Evaluate after training (trained policy)
+    after_results = trainer.evaluate(num_episodes=5, random_policy=False)
+    print(f"After Training Reward: {after_results['avg_reward']:.2f}")
+    print(f"After Training Action Distribution: {after_results['action_distribution']}")
     
     # Save results and models
     trainer.save_results()
@@ -608,6 +705,8 @@ def main():
     
     # Plot rewards
     trainer.plot_rewards()
+    trainer.plot_average_cash()
+    trainer.plot_unique_strategies()
     
     print(f"\nTraining artifacts saved to {trainer.output_dir}")
 
