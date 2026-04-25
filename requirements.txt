@@ -1,0 +1,14 @@
+numpy
+matplotlib
+torch
+transformers
+datasets
+scikit-learn
+fastapi
+uvicorn
+pydantic
+google-generativeai
+pytest
+python-dotenv
+faiss-cpu
+

@@ -1,0 +1,14 @@
+.git
+.gitignore
+venv
+__pycache__
+**/__pycache__
+*.pyc
+*.pyo
+.pytest_cache
+.mypy_cache
+frontend/node_modules
+frontend/dist
+training/training_output
+agent-transcripts
+*.log

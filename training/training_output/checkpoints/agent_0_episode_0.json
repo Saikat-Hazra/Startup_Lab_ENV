@@ -1,0 +1,7 @@
+{
+  "agent_id": "agent_0",
+  "action_size": 5,
+  "state_size": 6,
+  "epsilon": 0.995,
+  "q_table": {}
+}
