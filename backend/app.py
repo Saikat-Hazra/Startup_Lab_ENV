@@ -1,6 +1,7 @@
 """FastAPI backend for startup simulation."""
 
 import os
+import importlib.util
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -12,9 +13,27 @@ from pydantic import BaseModel
 
 from agents.controller_agent import ControllerAgent
 from agents.validator import DecisionValidator
-from env.startup_env import StartupEnv
 from memory.episodic_store import EpisodicMemory
 from memory.reflection import Reflection
+
+
+def _load_startup_env_class():
+    """Load StartupEnv with a file-path fallback for container runtimes."""
+    try:
+        from env.startup_env import StartupEnv as StartupEnvClass
+
+        return StartupEnvClass
+    except ModuleNotFoundError:
+        env_file = Path(__file__).resolve().parent.parent / "env" / "startup_env.py"
+        spec = importlib.util.spec_from_file_location("startup_env_local", env_file)
+        if spec is None or spec.loader is None:
+            raise
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.StartupEnv
+
+
+StartupEnv = _load_startup_env_class()
 
 
 class StepRequest(BaseModel):
