@@ -98,6 +98,11 @@ def _auto_actions(state: Dict[str, Any], mode: str = "trained") -> tuple[List[st
     return actions, reasonings
 
 
+@app.get("/")
+def home():
+    return {"message": "App is running 🚀"}
+
+
 @app.get("/state")
 def get_state() -> Dict[str, Any]:
     return {
